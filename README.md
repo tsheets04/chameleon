@@ -43,7 +43,7 @@ This project is being developed as part of:
 - SQL (MySQL 8+)
 - Backend: Python
 - Frontend: Wordpress/HTML/JS
-- PDF / Resume Generation: _TBD_
+- PDF / Resume Generation: ReportLab
 
 
 ---

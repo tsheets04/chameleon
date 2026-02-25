@@ -1,0 +1,9 @@
+###The required Libraries. Make sure to pip install these in your Python environment.###
+
+sqlalchemy
+pymysql
+openai
+dotenv
+reportlab
+bs4
+cloudscraper
