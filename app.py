@@ -9,6 +9,10 @@ import document_engine
 app = Flask(__name__)
 CORS(app)  # Allows your WordPress site to make requests to this API
 
+@app.route('/', methods=['GET'])
+def health_check():
+    return "🦎 Resume Chameleon API is Live and Listening!"
+
 @app.route('/generate-resume', methods=['POST'])
 def generate_resume():
     """
