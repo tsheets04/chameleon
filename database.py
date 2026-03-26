@@ -3,9 +3,9 @@ import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-# 1. DATABASE CONNECTION SETUP
-# REPLACE WITH NEEDED CREDENTIALS
 load_dotenv()
+
+# 1. DATABASE CONNECTION SETUP
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -16,23 +16,19 @@ DB_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 engine = sa.create_engine(DB_URL)
 Session = sessionmaker(bind=engine)
 
-# 2. FUNCTION TO FETCH FULL USER PROFILE
-#This collects data from the user, education, experience, and leadership tables.
 def get_full_user_profile(user_id):
     session = Session()
     try:
         # --- A. FETCH BASIC USER INFO ---
-        # Corresponds to 'user' table
-        user_query = sa.text("SELECT * FROM user WHERE userId = :uid")
+        # Note: Assuming standard WP 'users' table or custom 'wpresume_user' if created.
+        # If your user table isn't wpresume_user, update this table name.
+        user_query = sa.text("SELECT * FROM wp_users WHERE ID = :uid")
         user_row = session.execute(user_query, {"uid": user_id}).mappings().first()
         
-        if not user_row:
-            return None
-
         profile = {
-            "name": f"{user_row['first']} {user_row['last']}",
-            "email": user_row['email'],
-            "phone": user_row['phone'],
+            "name": user_row['display_name'] if user_row else "User",
+            "email": user_row['user_email'] if user_row else "",
+            "phone": "", # Phone is often in wp_usermeta
             "summary": "",
             "experience": [],
             "education": [],
@@ -40,46 +36,73 @@ def get_full_user_profile(user_id):
             "skills": []
         }
 
-        # --- B. FETCH EDUCATION ---
+        # --- B. FETCH SUMMARY ---
+        sum_query = sa.text("SELECT summary_text FROM wpresume_summary WHERE wp_user_id = :uid")
+        sum_row = session.execute(sum_query, {"uid": user_id}).mappings().first()
+        if sum_row:
+            profile["summary"] = sum_row['summary_text']
+
+        # --- C. FETCH EDUCATION ---
         edu_query = sa.text("""
-            SELECT e.school, e.GPA, m.major 
-            FROM education e 
-            JOIN eduMajor m ON e.eduId = m.eduId 
-            WHERE e.userId = :uid
+            SELECT e.institution_name as school, e.gpa as GPA, m.major_name as major 
+            FROM wpresume_education e 
+            JOIN wpresume_edumajor m ON e.education_id = m.education_id 
+            WHERE e.wp_user_id = :uid
         """)
         edu_results = session.execute(edu_query, {"uid": user_id}).mappings().all()
         profile["education"] = [dict(row) for row in edu_results]
 
-        # --- C. FETCH EXPERIENCE & DESCRIPTIONS ---
+        # --- D. FETCH EXPERIENCE & DESCRIPTIONS ---
         exp_query = sa.text("""
-            SELECT e.expId, e.employer, e.title, e.city, e.state, e.startDate, e.endDate, d.descr 
-            FROM experience e
-            LEFT JOIN expDesc d ON e.expId = d.expId
-            WHERE e.userId = :uid
-            ORDER BY e.startDate DESC
+            SELECT e.experience_id, e.employer, e.job_title as title, e.city, e.state, e.start_date, e.end_date, d.description as descr 
+            FROM wpresume_experience e
+            LEFT JOIN wpresume_expdesc d ON e.experience_id = d.experience_id
+            WHERE e.wp_user_id = :uid
+            ORDER BY e.start_date DESC
         """)
         exp_results = session.execute(exp_query, {"uid": user_id}).mappings().all()
         
-        # We group the descriptions (bullets) by the experience ID since they come in separate rows due to the LEFT JOIN. This way we can build a structured experience entry with its associated bullets.
         temp_exp = {}
         for row in exp_results:
-            eid = row['expId']
+            eid = row['experience_id']
             if eid not in temp_exp:
                 temp_exp[eid] = {
                     "company": row['employer'],
                     "title": row['title'],
                     "location": f"{row['city']}, {row['state']}",
-                    "date": f"{row['startDate']} - {row['endDate']}",
+                    "date": f"{row['start_date']} - {row['end_date']}",
                     "bullets": []
                 }
             if row['descr']:
                 temp_exp[eid]["bullets"].append(row['descr'])
-        
         profile["experience"] = list(temp_exp.values())
 
-        # --- D. FETCH ADDITIONAL SKILLS ---
-        # Collects skills like Power BI, SQL, and Python [cite: 40]
-        skill_query = sa.text("SELECT skill FROM addSkill WHERE userId = :uid")
+        # --- E. FETCH LEADERSHIP ---
+        lead_query = sa.text("""
+            SELECT l.leadership_id, l.organization_name as org, l.role_title as title, l.start_date, l.end_date, ld.description as descr 
+            FROM wpresume_leadership l
+            LEFT JOIN wpresume_leaddesc ld ON l.leadership_id = ld.leadership_id
+            WHERE l.wp_user_id = :uid
+            ORDER BY l.start_date DESC
+        """)
+        lead_results = session.execute(lead_query, {"uid": user_id}).mappings().all()
+        
+        temp_lead = {}
+        for row in lead_results:
+            lid = row['leadership_id']
+            if lid not in temp_lead:
+                temp_lead[lid] = {
+                    "org": row['org'],
+                    "title": row['title'],
+                    "date": f"{row['start_date']} - {row['end_date']}",
+                    "bullets": []
+                }
+            if row['descr']:
+                temp_lead[lid]["bullets"].append(row['descr'])
+        profile["leadership"] = list(temp_lead.values())
+
+        # --- F. FETCH ADDITIONAL SKILLS ---
+        skill_query = sa.text("SELECT skill_name as skill FROM wpresume_addskill WHERE wp_user_id = :uid")
         skill_results = session.execute(skill_query, {"uid": user_id}).mappings().all()
         profile["skills"] = [s['skill'] for s in skill_results]
 
@@ -87,9 +110,3 @@ def get_full_user_profile(user_id):
 
     finally:
         session.close()
-        
-        
-#Test Case HERE once we have data in the database.
-#if __name__ == "__main__":
-#    test_profile = get_full_user_profile(1) # Assuming 1 is the userId
-#    print(test_profile)
