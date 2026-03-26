@@ -1,5 +1,7 @@
 ###The required Libraries. Make sure to pip install these in your Python environment.###
 
+flask
+flask-cors
 sqlalchemy
 pymysql
 openai
