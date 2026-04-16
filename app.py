@@ -57,17 +57,41 @@ def generate_resume():
             "summary": selection_results["tailored_summary"],
             "education": master_data["education"], 
             "skills": selection_results["selected_skills"],
-            "experience": []
+            "experience": [],
+            "leadership": []
         }
 
         # Filter the master experience list based on AI selection
-        for exp in master_data["experience"]:
+        #for exp in master_data["experience"]:
             # Uses .strip() for better matching
-            if exp["company"].strip() in selection_results["selected_experience_ids"]:
-                tailored_json["experience"].append(exp)
+            #if exp["company"].strip() in selection_results["selected_experience_ids"]:
+                #tailored_json["experience"].append(exp)
+                
+        # Instead of matching, filter and use the AI's refined bullets
+        for ai_exp in selection_results.get("tailored_experience", []):
+            company_name = ai_exp["company"]
+            
+            # Find the static data (location, date, title) from your master_data
+            # We match the AI's company name against your database list
+            original_data = next((item for item in master_data["experience"] if item["company"].strip() == company_name.strip()), None)
+            
+            if original_data:
+                tailored_json["experience"].append({
+                    "company": company_name,
+                    "title": original_data["title"],
+                    "location": original_data["location"],
+                    "date": original_data["date"],
+                    "bullets": ai_exp["bullets"] # <--- This is the AI's clean list of strings
+                })
+                
+        # Add the tailored Leadership section
+        for lead in master_data.get("leadership", []):
+            # Matches the organization name against the AI's selected list
+            if lead["org"].strip() in selection_results.get("selected_leadership_ids", []):
+                tailored_json["leadership"].append(lead)
 
         # 6. GENERATE PDF (The Printer)
-        output_filename = f"Resume_{user_id}_Tailored.pdf"
+        output_filename = f"Resume_{user_id}.pdf"
         document_engine.generate_chameleon_pdf(output_filename, tailored_json, template_choice)
 
         # 7. SEND FILE BACK

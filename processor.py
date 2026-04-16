@@ -10,19 +10,20 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def tailor_resume_content(master_data, job_description):
     """
-    Analyzes the job description and filters Ethan's master data 
-    (Experience, Leadership, and Skills) to fit a one-page layout.
+    Analyzes the job description and filters master data 
+    (Experience, Leadership, etc.) to fit a one-page layout.
     """
     
     # SYSTEM PROMPT: Setting the professional standards
     system_instructions = (
-        "You are a professional recruiter specializing in Finance and MIS roles. "
+        "You are a professional recruiter specializing in college graduate resumes. "
         "Your goal is to tailor a candidate's resume to a specific job description. "
         "Rules:\n"
         "1. Maintain 100% factual accuracy.\n"
-        "2. Prioritize experiences and leadership roles most relevant to the job.\n"
+        "2. Prioritize elements most relevant to the job.\n"
         "3. Use industry keywords and Power Verbs.\n"
         "4. Ensure the final selection is optimized for a one-page professional resume."
+        "5. FORMATTING: Split raw experience descriptions into 3-5 individual, impacttful bullet point strings."
     )
 
     # USER PROMPT: Providing the full context including Leadership
@@ -32,13 +33,14 @@ def tailor_resume_content(master_data, job_description):
 
     CANDIDATE MASTER DATA:
     - Summary: {master_data.get('summary', '')}
+    - Education: {master_data.get('education', [])}
     - Experience: {master_data.get('experience', [])}
     - Leadership: {master_data.get('leadership', [])}
     - Skills: {master_data.get('skills', [])}
 
     Please return a JSON object with the following keys:
     1. 'tailored_summary': A 2-3 sentence punchy professional summary.
-    2. 'selected_experience_ids': A list of the 'company' names for the most relevant work experiences.
+    2. 'tailored_experience': A list of objects. Each object MUST have: a. 'company': the exact company name from the master data, b. 'bullets': a list of strings (3-5 items). split the user's raw text into seperate, professional bullet points.
     3. 'selected_leadership_ids': A list of the 'org' names for the most relevant leadership roles.
     4. 'selected_skills': A filtered list of the top 10 most relevant technical and soft skills.
     """

@@ -44,13 +44,27 @@ def get_full_user_profile(user_id):
 
         # --- C. FETCH EDUCATION ---
         edu_query = sa.text("""
-            SELECT e.institution_name as school, e.gpa as GPA, m.major_name as major 
+            SELECT e.institution_name as school, e.gpa as GPA, e.graduation_date as date, m.major_name as major 
             FROM wpresume_education e 
             JOIN wpresume_edumajor m ON e.education_id = m.education_id 
             WHERE e.wp_user_id = :uid
         """)
         edu_results = session.execute(edu_query, {"uid": user_id}).mappings().all()
-        profile["education"] = [dict(row) for row in edu_results]
+        # Group majors by education_id to handle dual degrees/majors
+        temp_edu = {}
+        for row in edu_results:
+            eid = row['education_id']
+            if eid not in temp_edu:
+                temp_edu[eid] = {
+                    "school": row['school'],
+                    "GPA": row['GPA'],
+                    "date": row['date'],
+                    "majors": []
+                }
+            # Add this specific major to the list for this school
+            temp_edu[eid]["majors"].append(row['major'])
+        
+        profile["education"] = list(temp_edu.values())
 
         # --- D. FETCH EXPERIENCE & DESCRIPTIONS ---
         exp_query = sa.text("""
