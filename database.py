@@ -22,7 +22,7 @@ def get_full_user_profile(user_id):
         # --- A. FETCH BASIC USER INFO ---
         # Note: Assuming standard WP 'users' table or custom 'wpresume_user' if created.
         # If your user table isn't wpresume_user, update this table name.
-        user_query = sa.text("SELECT * FROM wp_users WHERE ID = :uid")
+        user_query = sa.text("SELECT * FROM wpusers WHERE ID = :uid")
         user_row = session.execute(user_query, {"uid": user_id}).mappings().first()
         
         profile = {
